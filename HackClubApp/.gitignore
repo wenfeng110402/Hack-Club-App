@@ -1,6 +1,0 @@
-.env
-.DS_Store
-build/
-*.xcworkspace
-*.xcuserdata
-Pods/
