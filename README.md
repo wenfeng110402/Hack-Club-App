@@ -10,7 +10,3 @@ Clone the repository and open `Hack Club App.xcodeproj` in Xcode. Configure the 
 
 - iOS 17.0+
 - Xcode 15.0+
-
-## License
-
-MIT License

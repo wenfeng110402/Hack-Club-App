@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 
+// MARK: - App 主入口壳
 struct ContentView: View {
     @AppStorage("accessToken") private var accessToken = ""
     @StateObject private var session = SessionViewModel()
@@ -52,9 +53,11 @@ private enum AppTab {
     case settings
 }
 
+// MARK: - 首页
 struct HomeView: View {
     @ObservedObject var session: SessionViewModel
     @State private var previousVerificationState = false
+    @State private var toastMessage: String?
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -77,6 +80,13 @@ struct HomeView: View {
                     .padding(.bottom, 32)
                 }
             }
+            .overlay(alignment: .top) {
+                if let toastMessage {
+                    ToastBanner(message: toastMessage)
+                        .padding(.top, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .navigationTitle("Home")
             .onAppear {
                 previousVerificationState = session.user?.isVerifiedMember ?? false
@@ -97,7 +107,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(session.user?.nickname ?? session.user?.displayName ?? "Explorer")
+                    Text(session.user?.displayName ?? "Hack Clubber")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
@@ -146,23 +156,51 @@ struct HomeView: View {
     private var profileGrid: some View {
         LazyVGrid(columns: columns, spacing: 16) {
             ForEach(session.user?.profileRows ?? placeholderRows) { item in
-                ProfileInfoCard(item: item)
+                ProfileInfoCard(item: item) { _ in
+                    showCopyToast()
+                }
             }
         }
     }
 
     private var placeholderRows: [ProfileCardItem] {
         [
-            ProfileCardItem(title: "Email", value: "Waiting for login", detail: "Authorize with Hack Club Auth", systemImage: "envelope.fill", tintHex: 0x58A6FF),
+            ProfileCardItem(title: "YSWS Eligible", value: "Waiting for login", detail: "Authorize with Hack Club Auth", systemImage: "checkmark.seal.fill", tintHex: 0x2EA043),
+            ProfileCardItem(title: "Hackatime", value: "Unavailable", detail: "Currently unavailable", systemImage: "timer", tintHex: 0x58A6FF),
             ProfileCardItem(title: "Slack ID", value: "Unavailable", detail: "Request `slack_id` scope if needed", systemImage: "number.square.fill", tintHex: 0xDB61A2),
             ProfileCardItem(title: "Identity ID", value: "Unavailable", detail: "Returned by `openid`", systemImage: "person.text.rectangle.fill", tintHex: 0x8B949E),
-            ProfileCardItem(title: "Updated", value: "Unavailable", detail: "Returned by `profile`", systemImage: "clock.fill", tintHex: 0xD29922)
+            ProfileCardItem(title: "Mail", value: "will come", detail: "will come", systemImage: "envelope.fill", tintHex: 0xD29922)
         ]
+    }
+
+    private func showCopyToast() {
+        // 复制成功后给一个很短的 toast。
+        // 这里不用 alert，因为 alert 会打断当前操作。
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            toastMessage = "Copied!"
+        }
+
+        HapticManager.selection()
+
+        // 一小段时间后自动隐藏 toast。
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.2))
+            withAnimation(.easeOut(duration: 0.2)) {
+                toastMessage = nil
+            }
+        }
     }
 }
 
+// MARK: - 可复用的小卡片
 struct ProfileInfoCard: View {
     let item: ProfileCardItem
+    let onCopy: (String) -> Void
+
+    init(item: ProfileCardItem, onCopy: @escaping (String) -> Void = { _ in }) {
+        self.item = item
+        self.onCopy = onCopy
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -185,11 +223,8 @@ struct ProfileInfoCard: View {
                 .font(.system(size: 19, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(2)
-
-            Text(item.detail)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.52))
-                .lineLimit(2)
+                .contentShape(Rectangle())
+                .modifier(CopyableTextModifier(copyValue: item.copyValue, onCopy: onCopy))
         }
         .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
         .padding(18)
@@ -197,6 +232,49 @@ struct ProfileInfoCard: View {
     }
 }
 
+private struct CopyableTextModifier: ViewModifier {
+    let copyValue: String?
+    let onCopy: (String) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            // 这里只让文字本身响应长按，避免整张卡片和其他手势冲突。
+            .accessibilityHint(copyValue == nil ? "No copy action available" : "Long press to copy")
+            .onLongPressGesture(minimumDuration: 0.35) {
+                copyText()
+            }
+    }
+
+    private func copyText() {
+        // 只有存在可复制内容时，才写入剪贴板。
+        guard let copyValue, !copyValue.isEmpty else { return }
+        UIPasteboard.general.string = copyValue
+        HapticManager.selection()
+        // 把“已复制”的事件交回给 HomeView 去显示 toast。
+        onCopy(copyValue)
+    }
+}
+
+private struct ToastBanner: View {
+    let message: String
+
+    var body: some View {
+        // 一个很轻量的顶部提示条，不会明显打断用户操作。
+        Text(message)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.black.opacity(0.72), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+    }
+}
+
+// MARK: - YSWS 列表页
 struct YSWSView: View {
     @StateObject private var viewModel = YSWSDashboardViewModel()
 
@@ -319,6 +397,7 @@ struct YSWSProjectCard: View {
     }
 }
 
+// MARK: - 设置页
 struct SettingsView: View {
     @AppStorage("accessToken") private var accessToken = ""
     @AppStorage("isLoggedIn") private var isLoggedIn = false
@@ -342,6 +421,12 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        InfoView()
+                    } label: {
+                        Label("Info", systemImage: "info.circle")
+                    }
+
                     Button(role: .destructive) {
                         HapticManager.selection()
                         showLogoutConfirm = true
@@ -369,6 +454,7 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - 卡片统一样式
 enum CardEmphasis {
     case neutral
     case success
@@ -424,6 +510,7 @@ struct GlassCardModifier: ViewModifier {
     }
 }
 
+// MARK: - 设计色板
 enum AppPalette {
     static let background = Color(red: 0.05, green: 0.06, blue: 0.08)
     static let cardBackground = Color(red: 0.10, green: 0.11, blue: 0.13).opacity(0.9)
@@ -443,6 +530,7 @@ enum AppPalette {
     )
 }
 
+// MARK: - 颜色工具
 extension Color {
     init(hex: Int) {
         let red = Double((hex >> 16) & 0xFF) / 255
@@ -455,4 +543,3 @@ extension Color {
 #Preview {
     ContentView()
 }
-
