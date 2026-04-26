@@ -10,7 +10,7 @@ import SwiftUI
 struct InfoView: View {
     var body: some View {
         VStack {
-            Text("Version 0.1.0")
+            Text("Version 1.1")
                 .font(.subheadline)
                 .padding()
                 .foregroundStyle(.gray)

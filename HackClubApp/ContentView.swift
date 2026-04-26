@@ -156,8 +156,20 @@ struct HomeView: View {
     private var profileGrid: some View {
         LazyVGrid(columns: columns, spacing: 16) {
             ForEach(session.user?.profileRows ?? placeholderRows) { item in
-                ProfileInfoCard(item: item) { _ in
-                    showCopyToast()
+                // 如果是 Hackatime 卡片，用 NavigationLink 包裹
+                if item.title == "Hackatime" {
+                    NavigationLink {
+                        HackatimeView()
+                    } label: {
+                        ProfileInfoCard(item: item) { _ in
+                            showCopyToast()
+                        }
+                    }
+                    .buttonStyle(.plain) // 保持卡片原有样式，不被系统按钮变灰
+                } else {
+                    ProfileInfoCard(item: item) { _ in
+                        showCopyToast()
+                    }
                 }
             }
         }
@@ -208,7 +220,15 @@ struct ProfileInfoCard: View {
                 Image(systemName: item.systemImage)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color(hex: item.tintHex))
-
+                
+                // 针对可点击的卡片加一个向右的箭头，代表这是一个入口
+                if item.title == "Hackatime" {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.3))
+                        .padding(.leading, 4)
+                }
+                
                 Spacer()
             }
 
