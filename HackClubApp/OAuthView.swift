@@ -51,30 +51,48 @@ struct OAuthView: View {
                 .padding(.horizontal, 28)
                 .padding(.bottom, 40)
 
-                Button(action: handleSignIn) {
-                    HStack(spacing: 12) {
-                        if isExchangingCode {
-                            ProgressView()
-                                .tint(.white)
-                                .frame(width: 28, height: 28)
-                        } else {
-                            Image("icon-rounded")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 28, height: 28)
-                        }
+                VStack(spacing: 20) {
+                    Button(action: handleSignIn) {
+                        HStack(spacing: 12) {
+                            if isExchangingCode {
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(width: 28, height: 28)
+                            } else {
+                                Image("icon-rounded")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 28, height: 28)
+                            }
 
-                        Text(isExchangingCode ? "Signing in..." : "Log in with HCA")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
+                            Text(isExchangingCode ? "Signing in..." : "Log in with HCA")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .modifier(GlassCardModifier(emphasis: .neutral))
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .modifier(GlassCardModifier(emphasis: .neutral))
+                    .disabled(isExchangingCode)
+                    .buttonStyle(.plain)
+
+                    Button {
+                        HapticManager.impact(style: .soft, intensity: 0.8)
+                        withAnimation {
+                            accessToken = ""
+                            isLoggedIn = true
+                        }
+                    } label: {
+                        Text("Continue as Guest")
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                    }
+                    .disabled(isExchangingCode)
+                    .buttonStyle(.plain)
                 }
-                .disabled(isExchangingCode)
-                .buttonStyle(.plain)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
                 .frame(maxWidth: 320)
@@ -141,4 +159,8 @@ struct OAuthView: View {
 
         isExchangingCode = false
     }
+}
+
+#Preview {
+    OAuthView()
 }
